@@ -2,7 +2,8 @@
 #include <Eigen/Sparse>
 #include <iostream>
 #include <cstdlib>
-
+#include <fstream>
+#include <vector>
 // from https://github.com/nothings/stb/tree/master
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -114,20 +115,22 @@ int main(int argc, char* argv[]) {
   //std::cout << A1;
 
   VectorXd ris1 = A1*noisedVector;
-  MatrixXd smoothed(341,256);
+  std::cout << ris1.size() << std::endl;
+  //MatrixXd smoothed(341,256);
   
   //std::cout << ris1;
 
   //Eigen::MatrixXd smoothed = ris1.reshaped(rows, cols);
   
-  //Eigen::Map<Eigen::MatrixXd> smoothed(ris1.data(), rows, cols);
+  Eigen::Map<Eigen::MatrixXd> smoothed(ris1.data(), rows, cols);
 
+/*
   for (int i = 0; i < rows; i++){
     for (int j = 0; j < cols; j++){
       smoothed(i,j) = ris1[i*cols+j];
     }
   }
-
+*/
   Matrix<unsigned char, Dynamic, Dynamic, RowMajor> output_image_smoothed(rows, cols);
   // Use Eigen's unaryExpr to map the inputMatrixscale values (0.0 to 1.0) to 0 to 255
     output_image_smoothed = smoothed.unaryExpr([](double val) -> unsigned char {
@@ -140,6 +143,28 @@ int main(int argc, char* argv[]) {
 
     return 1;
   }
+   std::ofstream outputFile("matrice_sparsa.txt");
+
+    if (outputFile.is_open()) {
+        // Stampa la matrice con '*' per i valori non nulli
+        outputFile << "Matrice sparsa con '*' per i valori non nulli:\n";
+        for (int i = 0; i < A1.rows(); ++i) {
+            for (int j = 0; j < A1.cols(); ++j) {
+                if (A1.coeff(i, j) != 0) {
+                    outputFile << "* "; // Stampa '*' per i valori non nulli
+                } else {
+                    outputFile << ". "; // Stampa '.' per i valori nulli
+                }
+            }
+            outputFile << std::endl;
+        }
+
+        // Chiudiamo il file
+        outputFile.close();
+        std::cout << "Matrice scritta nel file 'matrice_sparsa.txt'.\n";
+    } else {
+        std::cerr << "Errore nell'apertura del file!" << std::endl;
+    }
 
   //std::cout << smoothed ;
 
