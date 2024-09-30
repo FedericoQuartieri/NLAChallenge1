@@ -11,6 +11,8 @@
 
 using namespace Eigen;
 
+typedef Eigen::Triplet<double> T;
+
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " <image_path>" << std::endl;
@@ -20,33 +22,33 @@ int main(int argc, char* argv[]) {
     const char* input_image_path = argv[1];
 
     // Load the image using stb_image
-    int width, height, channels;
+    int cols, rows, channels;
     // for greyscale images force to load only one channel
     unsigned char* image_data;
-    image_data = stbi_load(input_image_path, &width, &height, &channels, 1);
+    image_data = stbi_load(input_image_path, &cols, &rows, &channels, 1);
     if (!image_data) {
         std::cerr << "Error: Could not load image " << input_image_path << std::endl;
         return 1;
     }
 
-    std::cout << "Image loaded: " << width << "x" << height << " with " << channels << " channels." << std::endl;
-    MatrixXd inputMatrix(height,width);
-    for(int i=0;i<height;i++){
-        for(int j=0;j<width;j++){
-            int index = (i * width + j) * 1;
+    std::cout << "Image loaded: " << rows << "x" << cols << " with " << channels << " channels." << std::endl;
+    MatrixXd inputMatrix(rows,cols);
+    for(int i=0;i<rows;i++){
+        for(int j=0;j<cols;j++){
+            int index = (i * cols + j) * 1;
             inputMatrix(i,j) = static_cast<double>(image_data[index]) / 255.0;
         }
     }
     stbi_image_free(image_data);
 
-  Eigen::MatrixXd randomMatrix = Eigen::MatrixXd::Random(height, width);
+  Eigen::MatrixXd randomMatrix = Eigen::MatrixXd::Random(rows, cols);
   randomMatrix = 50*randomMatrix;
-  MatrixXd noised(height, width);
+  MatrixXd noised(rows, cols);
   
   // Fill the matrices with image data
-  for (int i = 0; i < height; ++i) {
-    for (int j = 0; j < width; ++j) {
-      int index = (i * width + j) * channels;  // 1 channel (Greyscale) 3 channels (RGB)
+  for (int i = 0; i < rows; ++i) {
+    for (int j = 0; j < cols; ++j) {
+      int index = (i * cols + j) * channels;  // 1 channel (Greyscale) 3 channels (RGB)
       
       noised(i, j) = (static_cast<double>(image_data[index]) + randomMatrix(i, j)) / 255.0;
       if (noised(i,j) >= 1) noised(i, j) = 1;
@@ -55,15 +57,14 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  Matrix<unsigned char, Dynamic, Dynamic, RowMajor> output_image(width, height);
+  Matrix<unsigned char, Dynamic, Dynamic, RowMajor> output_image(rows, cols);
   // Use Eigen's unaryExpr to map the inputMatrixscale values (0.0 to 1.0) to 0 to 255
     output_image = noised.unaryExpr([](double val) -> unsigned char {
     return static_cast<unsigned char>(val * 255.0);
   });
     // Save the image using stb_image_write
   const std::string output_image_path1 = "noised_task2.png";
-  if (stbi_write_png(output_image_path1.c_str(), width, height, 1,
-                     output_image.data(), width) == 0) {
+  if (stbi_write_png(output_image_path1.c_str(), cols, rows, 1, output_image.data(), cols) == 0) {
     std::cerr << "Error: Could not save inputMatrixscale image" << std::endl;
 
     return 1;
@@ -78,24 +79,22 @@ int main(int argc, char* argv[]) {
 
   std::cout <<"The norm of the original matrix flattened to a vector is: " << original.norm() << std::endl;
 
-  Eigen::VectorXd diff = original - noisedVector;
+  //Eigen::VectorXd diff = original - noisedVector;
 
 
-  SparseMatrix<double> A1(height*width, height*width);
-  
-  
+  SparseMatrix<double> A1(rows*cols, rows*cols);
 
   std::cout << A1.size() << std::endl;
   int c = 0;
 
-  for (int i = 0; i < height; i++){
-    for (int j = 0; j < width; j++){
+  std::vector<T> tripletList;
+  tripletList.reserve(782086);
+  for (int i = 0; i < rows; i++){
+    for (int j = 0; j < cols; j++){
       for (int k = i-1; k <= i + 1; k++){
         for (int l = j-1; l<= j + 1 ; l++){
-          if(k >= 0 && k < height && l >= 0 && l < width){
-            //std::cout << "c = " << c << std::endl;
-            A1.coeffRef(i*width + j, k*width + l) = 1.0/9;
-            //A1.insert(i*width + j, k*width + l) = 1.0/9;
+          if(k >= 0 && k < rows && l >= 0 && l < cols){
+            tripletList.emplace_back(T(i*cols + j, k*cols + l, 1.0/9));
             c++;
           }
         }
@@ -104,10 +103,49 @@ int main(int argc, char* argv[]) {
     }
     std::cout << "i = " << i << std::endl;
   }
-  std::cout << "ehijnsk";
-  //A1.makeCompressed();
-  //std::cout << A1 << std::endl;
-  std::cout << c << std::endl;
+
+  A1.setFromTriplets(tripletList.begin(), tripletList.end());
+  
+
+  std::cout << "number of non zero values= " << c << std::endl;
+
+  //-------------------------------Here starts task 5----------------------------------------
+
+  //std::cout << A1;
+
+  VectorXd ris1 = A1*noisedVector;
+  MatrixXd smoothed(341,256);
+  
+  //std::cout << ris1;
+
+  //Eigen::MatrixXd smoothed = ris1.reshaped(rows, cols);
+  
+  //Eigen::Map<Eigen::MatrixXd> smoothed(ris1.data(), rows, cols);
+
+  for (int i = 0; i < rows; i++){
+    for (int j = 0; j < cols; j++){
+      smoothed(i,j) = ris1[i*cols+j];
+    }
+  }
+
+  Matrix<unsigned char, Dynamic, Dynamic, RowMajor> output_image_smoothed(rows, cols);
+  // Use Eigen's unaryExpr to map the inputMatrixscale values (0.0 to 1.0) to 0 to 255
+    output_image_smoothed = smoothed.unaryExpr([](double val) -> unsigned char {
+    return static_cast<unsigned char>(val * 255.0);
+  });
+    // Save the image using stb_image_write
+  const std::string output_image_path2 = "noised_task5.png";
+  if (stbi_write_png(output_image_path2.c_str(), cols, rows, 1, output_image_smoothed.data(), cols) == 0) {
+    std::cerr << "Error: Could not save inputMatrixscale image" << std::endl;
+
+    return 1;
+  }
+
+  //std::cout << smoothed ;
+
+  //std::cout << noised << st;
+
+  std::cout << smoothed.cols() << std::endl;
 
   return 0;
 }
