@@ -44,7 +44,7 @@ int main(int argc, char* argv[]) {
 
   Eigen::MatrixXd randomMatrix = Eigen::MatrixXd::Random(rows, cols);
   randomMatrix = 50*randomMatrix;
-  MatrixXd noised(rows, cols);
+  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> noised(rows, cols);//you have to specify that the matrix is rowmajor!
   
   // Fill the matrices with image data
   for (int i = 0; i < rows; ++i) {
@@ -81,8 +81,6 @@ int main(int argc, char* argv[]) {
   std::cout <<"The norm of the original matrix flattened to a vector is: " << original.norm() << std::endl;
 
   //Eigen::VectorXd diff = original - noisedVector;
-
-
   SparseMatrix<double> A1(rows*cols, rows*cols);
 
   std::cout << A1.size() << std::endl;
@@ -90,24 +88,22 @@ int main(int argc, char* argv[]) {
 
   std::vector<T> tripletList;
   tripletList.reserve(782086);
-  for (int i = 0; i < rows; i++){
-    for (int j = 0; j < cols; j++){
-      for (int k = i-1; k <= i + 1; k++){
-        for (int l = j-1; l<= j + 1 ; l++){
-          if(k >= 0 && k < rows && l >= 0 && l < cols){
-            tripletList.emplace_back(T(i*cols + j, k*cols + l, 1.0/9));
-            c++;
-          }
+  for (int i = 0; i < rows; i++) {
+  for (int j = 0; j < cols; j++) {
+    for (int k = i - 1; k <= i + 1; k++) {
+      for (int l = j - 1; l <= j + 1; l++) {
+        if (k >= 0 && k < rows && l >= 0 && l < cols) {
+          tripletList.emplace_back(T(i * cols + j, k * cols + l, 1.0 / 9));
+          c++;
         }
       }
-      // single row of A1 completed
     }
-    std::cout << "i = " << i << std::endl;
   }
+}
 
   A1.setFromTriplets(tripletList.begin(), tripletList.end());
   
-
+  //std::cout << A1 << std::endl;
   std::cout << "number of non zero values= " << c << std::endl;
 
   //-------------------------------Here starts task 5----------------------------------------
@@ -122,49 +118,25 @@ int main(int argc, char* argv[]) {
 
   //Eigen::MatrixXd smoothed = ris1.reshaped(rows, cols);
   
-  Eigen::Map<Eigen::MatrixXd> smoothed(ris1.data(), rows, cols);
+  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> smoothed = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>(ris1.data(), rows, cols);
 
-/*
-  for (int i = 0; i < rows; i++){
-    for (int j = 0; j < cols; j++){
-      smoothed(i,j) = ris1[i*cols+j];
-    }
-  }
-*/
-  Matrix<unsigned char, Dynamic, Dynamic, RowMajor> output_image_smoothed(rows, cols);
-  // Use Eigen's unaryExpr to map the inputMatrixscale values (0.0 to 1.0) to 0 to 255
-    output_image_smoothed = smoothed.unaryExpr([](double val) -> unsigned char {
+// Apply clipping to ensure values stay between 0 and 1
+smoothed = smoothed.unaryExpr([](double val) -> double {
+    return std::min(1.0, std::max(0.0, val));  // Clip values between 0 and 1
+});
+
+// Convert the clipped matrix to unsigned char for saving the image
+Matrix<unsigned char, Dynamic, Dynamic, RowMajor> output_image_smoothed(rows, cols);
+output_image_smoothed = smoothed.unaryExpr([](double val) -> unsigned char {
     return static_cast<unsigned char>(val * 255.0);
-  });
-    // Save the image using stb_image_write
-  const std::string output_image_path2 = "noised_task5.png";
-  if (stbi_write_png(output_image_path2.c_str(), cols, rows, 1, output_image_smoothed.data(), cols) == 0) {
-    std::cerr << "Error: Could not save inputMatrixscale image" << std::endl;
+});
 
+// Save the image using stb_image_write
+const std::string output_image_path2 = "noised_task5.png";
+if (stbi_write_png(output_image_path2.c_str(), cols, rows, 1, output_image_smoothed.data(), cols) == 0) {
+    std::cerr << "Error: Could not save smoothed image" << std::endl;
     return 1;
-  }
-   std::ofstream outputFile("matrice_sparsa.txt");
-
-    if (outputFile.is_open()) {
-        // Stampa la matrice con '*' per i valori non nulli
-        outputFile << "Matrice sparsa con '*' per i valori non nulli:\n";
-        for (int i = 0; i < A1.rows(); ++i) {
-            for (int j = 0; j < A1.cols(); ++j) {
-                if (A1.coeff(i, j) != 0) {
-                    outputFile << "* "; // Stampa '*' per i valori non nulli
-                } else {
-                    outputFile << ". "; // Stampa '.' per i valori nulli
-                }
-            }
-            outputFile << std::endl;
-        }
-
-        // Chiudiamo il file
-        outputFile.close();
-        std::cout << "Matrice scritta nel file 'matrice_sparsa.txt'.\n";
-    } else {
-        std::cerr << "Errore nell'apertura del file!" << std::endl;
-    }
+}
 
   //std::cout << smoothed ;
 
@@ -173,4 +145,4 @@ int main(int argc, char* argv[]) {
   std::cout << smoothed.cols() << std::endl;
 
   return 0;
-}
+  }
