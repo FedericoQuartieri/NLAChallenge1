@@ -126,12 +126,12 @@ void exportVectorToMatrixMarket(const Eigen::VectorXd& vec, const std::string& f
     }
 
     // Write the Matrix Market header
-    file << "%%MatrixMarket vector array real\n";
-    file << vec.size() << "\n";  // Write the number of values
+    file << "%%MatrixMarket vector coordinate real general\n";
+    file << vec.size() << "\n";  // Write the size of the vector
 
-    // Write the vector values
+    // Write the vector values in MatrixMarket format (1-based indexing)
     for (int i = 0; i < vec.size(); ++i) {
-        file << vec(i) << "\n";  // Write only the values, no indexing
+        file << (i + 1) << "   " << std::scientific << vec(i) << "\n";
     }
 
     // Close the file
@@ -347,7 +347,7 @@ int main(int argc, char* argv[]) {
 
   VectorXd task9Vector = loadVectorFromMTX("sol.mtx");
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> task9 = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>(task9Vector.data(), rows, cols);
-
+  task9/=255;
   // Apply clipping to ensure values stay between 0 and 1
   task9 = task9.unaryExpr([](double val) -> double {
     return min(1.0, max(0.0, val));  // Clip values between 0 and 1
