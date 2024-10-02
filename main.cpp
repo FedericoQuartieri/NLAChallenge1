@@ -11,28 +11,32 @@
 #include "stb_image_write.h"
 
 using namespace Eigen;
+using namespace std;
 
 typedef Eigen::Triplet<double> T;
 
 
+//Matrix<unsigned char, Dynamic, Dynamic, RowMajor>
+int saveImage(int rows, int cols, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> image, string output_image_path){
+  Matrix<unsigned char, Dynamic, Dynamic, RowMajor> output_image(rows, cols);
+    // Use Eigen's unaryExpr to map the inputMatrixscale values (0.0 to 1.0) to 0 to 255
+    output_image = image.unaryExpr([](double val) -> unsigned char {
+    return static_cast<unsigned char>(val * 255.0);
+  });
 
-// int saveImage(int rows, int cols, Matrix<unsigned char, Dynamic, Dynamic, RowMajor> image){
-//   Matrix<unsigned char, Dynamic, Dynamic, RowMajor> output_image(rows, cols);
-//     // Use Eigen's unaryExpr to map the inputMatrixscale values (0.0 to 1.0) to 0 to 255
-//     output_image = image.unaryExpr([](double val) -> unsigned char {
-//     return static_cast<unsigned char>(val * 255.0);
-//   });
-//   // Save the image using stb_image_write
-//   const std::string output_image_path1 = "noised_task2.png";
-//   if (stbi_write_png(output_image_path1.c_str(), cols, rows, 1, output_image.data(), cols) == 0) {
-//     std::cerr << "Error: Could not save inputMatrixscale image" << std::endl;
-//     return 1;
-//   }
-// }
+  // Save the image using stb_image_write
+  if (stbi_write_png(output_image_path.c_str(), cols, rows, 1, output_image.data(), cols) == 0) {
+    cerr << "Error: Could not save inputMatrixscale image" << endl;
+    return 1;
+  }
+  return 0;
+}
+
+
 bool isSymmetricPositiveDefinite(const SparseMatrix<double>& matrix) {
     // Verifica se la matrice è quadrata
     if (matrix.rows() != matrix.cols()) {
-        std::cerr << "La matrice non è quadrata!" << std::endl;
+        cerr << "La matrice non è quadrata!" << endl;
         return false;
     }
 
@@ -55,7 +59,7 @@ int main(int argc, char* argv[]) {
   //---------------------------setup--------------------------
 
   if (argc < 2) {
-      std::cerr << "Usage: " << argv[0] << " <image_path>" << std::endl;
+      cerr << "Usage: " << argv[0] << " <image_path>" << endl;
       return 1;
   }
 
@@ -72,11 +76,11 @@ int main(int argc, char* argv[]) {
   unsigned char* image_data;
   image_data = stbi_load(input_image_path, &cols, &rows, &channels, 1);
   if (!image_data) {
-      std::cerr << "Error: Could not load image " << input_image_path << std::endl;
+      cerr << "Error: Could not load image " << input_image_path << endl;
       return 1;
   }
 
-  std::cout << "Image loaded: " << rows << "x" << cols << " with " << channels << " channels." << std::endl;
+  cout << "Image loaded: " << rows << "x" << cols << " with " << channels << " channels." << endl;
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> inputMatrix(rows, cols);
   for(int i=0;i<rows;i++){
       for(int j=0;j<cols;j++){
@@ -95,6 +99,7 @@ int main(int argc, char* argv[]) {
   randomMatrix = 50*randomMatrix;
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> noised(rows, cols);//you have to specify that the matrix is rowmajor!
 
+
   // Fill the matrices with image data
   for (int i = 0; i < rows; ++i) {
     for (int j = 0; j < cols; ++j) {
@@ -107,36 +112,35 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  //saveImage(rows, cols, noised);
 
-  Matrix<unsigned char, Dynamic, Dynamic, RowMajor> output_image(rows, cols);
-  // Use Eigen's unaryExpr to map the inputMatrixscale values (0.0 to 1.0) to 0 to 255
-    output_image = noised.unaryExpr([](double val) -> unsigned char {
-    return static_cast<unsigned char>(val * 255.0);
-  });
-    // Save the image using stb_image_write
-  const std::string output_image_path1 = "noised_task2.png";
-  if (stbi_write_png(output_image_path1.c_str(), cols, rows, 1, output_image.data(), cols) == 0) {
-    std::cerr << "Error: Could not save inputMatrixscale image" << std::endl;
-    return 1;
-  }
+
+  saveImage(rows, cols, noised, "noised_task2.png");
+
 
 
   //----------------------here starts task 3-----------------------------------
+  //originalVector
+  //noisedVector
+
 
   Eigen::VectorXd originalVector = Eigen::Map<Eigen::VectorXd>(inputMatrix.data(), inputMatrix.size());
   Eigen::VectorXd noisedVector = Eigen::Map<Eigen::VectorXd>(noised.data(), noised.size());
-  std::cout <<"The size of the vectors are:" << originalVector.size() << ", " << noisedVector.size() << std::endl;
+  cout <<"The size of the vectors are:" << originalVector.size() << ", " << noisedVector.size() << endl;
 
-  std::cout <<"The norm of the originalVector matrix flattened to a vector is: " << originalVector.norm() << std::endl;
+  cout <<"The norm of the originalVector matrix flattened to a vector is: " << originalVector.norm() << endl;
+
+
+  //----------------------here starts task 4 (A1)-----------------------------------
+  //A1
+
 
   //Eigen::VectorXd diff = originalVector - noisedVector;
   SparseMatrix<double> A1(rows*cols, rows*cols);
 
-  std::cout << A1.size() << std::endl;
+  cout << A1.size() << endl;
   int c = 0;
 
-  std::vector<T> tripletList;
+  vector<T> tripletList;
   tripletList.reserve(782086);
   for (int i = 0; i < rows; i++) {
   for (int j = 0; j < cols; j++) {
@@ -153,52 +157,33 @@ int main(int argc, char* argv[]) {
 
   A1.setFromTriplets(tripletList.begin(), tripletList.end());
 
-  //std::cout << A1 << std::endl;
-  std::cout << "number of non zero values= " << c << std::endl;
+  //cout << A1 << endl;
+  cout << "number of non zero values= " << c << endl;
 
-  //-------------------------------Here starts task 5----------------------------------------
+  //-------------------------------Here starts task 5 (apply A1)----------------------------------------
+  //smoothed
 
-  //std::cout << A1;
 
   VectorXd ris1 = A1*noisedVector;
-  std::cout << ris1.size() << std::endl;
-  //MatrixXd smoothed(341,256);
+  cout << ris1.size() << endl;
 
-  //std::cout << ris1;
-
-  //Eigen::MatrixXd smoothed = ris1.reshaped(rows, cols);
 
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> smoothed = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>(ris1.data(), rows, cols);
 
   // Apply clipping to ensure values stay between 0 and 1
   smoothed = smoothed.unaryExpr([](double val) -> double {
-    return std::min(1.0, std::max(0.0, val));  // Clip values between 0 and 1
+    return min(1.0, max(0.0, val));  // Clip values between 0 and 1
   });
 
-  // Convert the clipped matrix to unsigned char for saving the image
-  Matrix<unsigned char, Dynamic, Dynamic, RowMajor> output_image_smoothed(rows, cols);
-  output_image_smoothed = smoothed.unaryExpr([](double val) -> unsigned char {
-    return static_cast<unsigned char>(val * 255.0);
-  });
-
-  // Save the image using stb_image_write
-  const std::string output_image_path2 = "noised_task5.png";
-  if (stbi_write_png(output_image_path2.c_str(), cols, rows, 1, output_image_smoothed.data(), cols) == 0) {
-    std::cerr << "Error: Could not save smoothed image" << std::endl;
-    return 1;
-  }
-
-  //std::cout << smoothed ;
-
-  //std::cout << noised << st;
-
-  std::cout << smoothed.cols() << std::endl;
+  saveImage(rows, cols, smoothed, "smoothed_tasks.png");
 
 
-  //-------------------------Here starts task 6--------------------------
+
+  //-------------------------Here starts task 6 (A2)--------------------------
+  //A2
 
   int nnz=0;
-  std::vector<T> tripletsList;
+  vector<T> tripletsList;
   tripletList.reserve(782086);
   for (int i = 0; i < rows; i++) {
     for (int j = 0; j < cols; j++) {
@@ -236,56 +221,32 @@ int main(int argc, char* argv[]) {
       }
     }
   }
+
   SparseMatrix<double> A2(rows*cols, rows*cols);
   A2.setFromTriplets(tripletsList.begin(), tripletsList.end());
-  std::cout << "number of non zero values= " << nnz << std::endl;
+  cout << "number of non zero values= " << nnz << endl;
 
   if (A2.isApprox(A2.transpose())) {
-        std::cout << "The matrix is symmetric." << std::endl;
+        cout << "The matrix A2 is symmetric." << endl;
     } else {
-        std::cout << "Die alone you can't code." << std::endl;
+        cout << "The matrix A2 is NOT SYMMETRIC" << endl;
     }
 
 
-  //-------------------------Here starts task 7--------------------------
-
-  //std::cout << A1;
+  //-------------------------Here starts task 7 (apply A2)--------------------------
+  //sharpened
 
   VectorXd ris2 = A2*originalVector;
-  std::cout << ris2.size() << std::endl;
-  //MatrixXd smoothed(341,256);
-
-  //std::cout << ris1;
-
-  //Eigen::MatrixXd smoothed = ris1.reshaped(rows, cols);
+  cout << ris2.size() << endl;
 
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> sharpened = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>(ris2.data(), rows, cols);
 
   // Apply clipping to ensure values stay between 0 and 1
   sharpened = sharpened.unaryExpr([](double val) -> double {
-    return std::min(1.0, std::max(0.0, val));  // Clip values between 0 and 1
+    return min(1.0, max(0.0, val));  // Clip values between 0 and 1
   });
 
-  // Convert the clipped matrix to unsigned char for saving the image
-  Matrix<unsigned char, Dynamic, Dynamic, RowMajor> output_image_sharpened(rows, cols);
-  output_image_sharpened = sharpened.unaryExpr([](double val) -> unsigned char {
-    return static_cast<unsigned char>(val * 255.0);
-  });
-
-  // Save the image using stb_image_write
-  const std::string output_image_path3 = "task7.png";
-  if (stbi_write_png(output_image_path3.c_str(), cols, rows, 1, output_image_sharpened.data(), cols) == 0) {
-    std::cerr << "Error: Could not save smoothed image" << std::endl;
-    return 1;
-  }
-
-  //std::cout << smoothed ;
-
-  //std::cout << noised << st;
-
-  //std::cout << smoothed.cols() << std::endl;
-
-
+  saveImage(rows, cols, sharpened, "sharpened_task7.png")
 
 
 
@@ -302,10 +263,10 @@ int main(int argc, char* argv[]) {
 
 
 
-  //-------------------------Here starts task 10--------------------------
+  //-------------------------Here starts task 10 (A3)--------------------------
 
   int nonzero=0;
-  std::vector<T> triplets;
+  vector<T> triplets;
   triplets.reserve(782086);
   for (int i = 0; i < rows; i++) {
     for (int j = 0; j < cols; j++) {
@@ -343,64 +304,43 @@ int main(int argc, char* argv[]) {
       }
     }
   }
+
   SparseMatrix<double> A3(rows*cols, rows*cols);
   A3.setFromTriplets(triplets.begin(), triplets.end());
-  std::cout << "number of non zero values= " << nonzero << std::endl;
+  cout << "number of non zero values= " << nonzero << endl;
 
   if (A3.isApprox(A3.transpose())) {
-        std::cout << "The matrix A3 is symmetric." << std::endl;
+      cout << "The matrix A3 is symmetric." << endl;
     } else {
-        std::cout << "Die alone you can't code." << std::endl;
-    }
+      cout << "The matrix A3 is NOT SYMMETRIC" << endl;
+  }
 
 
 
 
-
-
-  //-------------------------Here starts task 11--------------------------
-  //std::cout << A1;
+  //-------------------------Here starts task 11 (apply A3)--------------------------
+  //edge detection
 
   VectorXd ris3 = A3*originalVector;
-  std::cout << ris3.size() << std::endl;
-  //MatrixXd smoothed(341,256);
+  cout << ris3.size() << endl;
 
-  //std::cout << ris1;
-
-  //Eigen::MatrixXd smoothed = ris1.reshaped(rows, cols);
 
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> detected = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>(ris3.data(), rows, cols);
 
   // Apply clipping to ensure values stay between 0 and 1
   detected = detected.unaryExpr([](double val) -> double {
-    return std::min(1.0, std::max(0.0, val));  // Clip values between 0 and 1
+    return min(1.0, max(0.0, val));  // Clip values between 0 and 1
   });
 
-  // Convert the clipped matrix to unsigned char for saving the image
-  Matrix<unsigned char, Dynamic, Dynamic, RowMajor> output_image_detected(rows, cols);
-  output_image_detected = detected.unaryExpr([](double val) -> unsigned char {
-    return static_cast<unsigned char>(val * 255.0);
-  });
-
-  // Save the image using stb_image_write
-  const std::string output_image_path4 = "task11.png";
-  if (stbi_write_png(output_image_path4.c_str(), cols, rows, 1, output_image_detected.data(), cols) == 0) {
-    std::cerr << "Error: Could not save smoothed image" << std::endl;
-    return 1;
-  }
-
-  //std::cout << smoothed ;
-
-  //std::cout << noised << st;
-
-  //std::cout << smoothed.cols() << std::endl;
+  saveImage(rows, cols, detected, "edge_detection_task11.png")
 
 
 
+  //-------------------------Here starts task 12()--------------------------
 
-  //-------------------------Here starts task 12--------------------------
+
   SparseMatrix<double> I(rows*cols, rows*cols);
-  std::vector<T> identity;
+  vector<T> identity;
   for(int i = 0;i<rows*cols;i++){
       identity.emplace_back(i,i,1);
   }
@@ -409,9 +349,9 @@ int main(int argc, char* argv[]) {
   A4 = I + A3;
 
   if (isSymmetricPositiveDefinite(A4)) {
-        std::cout << "La matrice è simmetrica e definita positiva." << std::endl;
+        cout << "La matrice è simmetrica e definita positiva." << endl;
     } else {
-        std::cout << "La matrice non è simmetrica o non è definita positiva." << std::endl;
+        cout << "La matrice non è simmetrica o non è definita positiva." << endl;
     }
   
 
