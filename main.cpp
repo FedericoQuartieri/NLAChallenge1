@@ -52,6 +52,91 @@ bool isSymmetricPositiveDefinite(const SparseMatrix<double>& matrix) {
     return true;
 }
 
+Eigen::VectorXd loadVectorFromMTX(const std::string& filename) {
+    std::ifstream infile(filename);
+    if (!infile.is_open()) {
+        throw std::runtime_error("Cannot open file.");
+    }
+
+    std::string line;
+    // Salta i commenti e l'intestazione
+    while (std::getline(infile, line)) {
+        if (line[0] != '%') {
+            break;
+        }
+    }
+
+    // Legge la dimensione del vettore (e altre informazioni inutilizzate)
+    int rows;
+    std::istringstream iss(line);
+    iss >> rows;
+
+    // Assicuriamoci che il file descriva un vettore colonna
+    //if (cols != 1) {
+      //  throw std::runtime_error("The file does not contain a column vector.");
+    //}
+
+    // Creiamo il vettore Eigen::VectorXd della dimensione corretta
+    Eigen::VectorXd vec(rows);
+
+    // Legge i valori dal file .mtx
+    int index;
+    double value;
+    for (int i = 0; i < rows; ++i) {
+        infile >> index >> value;
+        vec(index - 1) = value;  // Gli indici in Matrix Market partono da 1, quindi dobbiamo sottrarre 1
+    }
+
+    infile.close();
+    return vec;
+}
+
+
+void exportToMatrixMarket(const Eigen::SparseMatrix<double>& mat, const std::string& filename) {
+    std::ofstream file(filename);
+
+    // Check if the file opened successfully
+    if (!file.is_open()) {
+        std::cerr << "Error: Could not open file " << filename << std::endl;
+        return;
+    }
+
+    // Write the Matrix Market header
+    file << "%%MatrixMarket matrix coordinate real general\n";
+    file << mat.rows() << " " << mat.cols() << " " << mat.nonZeros() << "\n";
+
+    // Loop through non-zero elements of the sparse matrix
+    for (int k = 0; k < mat.outerSize(); ++k) {
+        for (Eigen::SparseMatrix<double>::InnerIterator it(mat, k); it; ++it) {
+            // MatrixMarket format uses 1-based indexing, so add 1 to row and col indices
+            file << (it.row() + 1) << " " << (it.col() + 1) << " " << it.value() << "\n";
+        }
+    }
+
+    // Close the file
+    file.close();
+}
+void exportVectorToMatrixMarket(const Eigen::VectorXd& vec, const std::string& filename) {
+    std::ofstream file(filename);
+
+    // Check if the file opened successfully
+    if (!file.is_open()) {
+        std::cerr << "Error: Could not open file " << filename << std::endl;
+        return;
+    }
+
+    // Write the Matrix Market header
+    file << "%%MatrixMarket vector array real\n";
+    file << vec.size() << "\n";  // Write the number of values
+
+    // Write the vector values
+    for (int i = 0; i < vec.size(); ++i) {
+        file << vec(i) << "\n";  // Write only the values, no indexing
+    }
+
+    // Close the file
+    file.close();
+}
 
 
 int main(int argc, char* argv[]) {
@@ -175,7 +260,7 @@ int main(int argc, char* argv[]) {
     return min(1.0, max(0.0, val));  // Clip values between 0 and 1
   });
 
-  saveImage(rows, cols, smoothed, "smoothed_tasks.png");
+  saveImage(rows, cols, smoothed, "smoothed_task5.png");
 
 
 
@@ -246,17 +331,29 @@ int main(int argc, char* argv[]) {
     return min(1.0, max(0.0, val));  // Clip values between 0 and 1
   });
 
-  saveImage(rows, cols, sharpened, "sharpened_task7.png")
+  saveImage(rows, cols, sharpened, "sharpened_task7.png");
 
 
 
   //-------------------------Here starts task 8--------------------------
-
-
-
+  
+  exportToMatrixMarket(A2,"matrix_output.mtx");
+  exportVectorToMatrixMarket(noisedVector*255,"vector_output.mtx");
+  //tol=1e-9;
+ 
 
 
   //-------------------------Here starts task 9--------------------------
+
+  VectorXd task9Vector = loadVectorFromMTX("sol.mtx");
+  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> task9 = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>(task9Vector.data(), rows, cols);
+
+  // Apply clipping to ensure values stay between 0 and 1
+  task9 = task9.unaryExpr([](double val) -> double {
+    return min(1.0, max(0.0, val));  // Clip values between 0 and 1
+  });
+
+  saveImage(rows, cols, task9, "task9.png");
 
 
 
@@ -332,7 +429,7 @@ int main(int argc, char* argv[]) {
     return min(1.0, max(0.0, val));  // Clip values between 0 and 1
   });
 
-  saveImage(rows, cols, detected, "edge_detection_task11.png")
+  saveImage(rows, cols, detected, "edge_detection_task11.png");
 
 
 
@@ -353,12 +450,28 @@ int main(int argc, char* argv[]) {
     } else {
         cout << "La matrice non è simmetrica o non è definita positiva." << endl;
     }
+    
+  Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper> cg;
+  cg.compute(A4);
+  VectorXd w=noisedVector;
+  double tol = 1e-10;
+  cg.setTolerance(tol);
+  VectorXd y=cg.solve(w);
   
+  cout << "Iterations:" << cg.iterations() << endl;
+  cout << "Residual:" << cg.error() << endl;
+
 
   //-------------------------Here starts task 13 -------------------------
+  
+  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> task13 = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>(y.data(), rows, cols);
 
+  // Apply clipping to ensure values stay between 0 and 1
+  task13 = task13.unaryExpr([](double val) -> double {
+    return min(1.0, max(0.0, val));  // Clip values between 0 and 1
+  });
 
-
+  saveImage(rows, cols, task13, "task13.png");
 
 
 
